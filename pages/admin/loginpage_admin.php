@@ -1,5 +1,5 @@
 <?php
-include "cek_koneksi.php";
+include "../../actions/cek_koneksi.php";
 
 $pesan = "";
 session_start();
@@ -7,11 +7,12 @@ if(isset($_POST["masuk"])) {
 
     $email = $_POST["email"];
     $passwords = $_POST["password"];
+    $role = $_POST["role"];
 
     if($email == "" && $passwords == ""){
         $pesan = "Email dan password tidak boleh kosong";
     } else {
-            $sql = mysqli_prepare($conn,"SELECT * FROM users WHERE email=? AND passwords=?");
+            $sql = mysqli_prepare($conn,"SELECT * FROM users WHERE email=? AND passwords=? AND role='admin'");
             mysqli_stmt_bind_param($sql,"ss",$email, $passwords);
             mysqli_stmt_execute($sql);
             $result= mysqli_stmt_get_result($sql);
@@ -20,7 +21,7 @@ if(isset($_POST["masuk"])) {
                 $_SESSION["login_berhasil"] = true;
                 $_SESSION["email"] = $email;
                 $pesan = "Login berhasil.";
-                header("Location: home.php");
+                header("Location: ../pages/admin/home_page_admin.php");
 
 
             }   else {

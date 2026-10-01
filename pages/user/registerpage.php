@@ -1,17 +1,18 @@
 <?php
-include "cek_koneksi.php";
+include "../../actions/cek_koneksi.php";
 
 $pesan ="";
 if(isset($_POST["simpan"])) {
 
     $email = $_POST["email"];
     $passwords = $_POST["passwords"];
+    $role = $_POST["role"];
 
     if ($email == "" && $passwords ==""){
         $pesan = "email dan password tidak boleh kosong";
 
     }   else {
-            $sql = mysqli_prepare($conn,"INSERT INTO users (email,passwords) VALUES (?,?)");
+            $sql = mysqli_prepare($conn,"INSERT INTO users (email,passwords,role) VALUES (?,?,'user')");
             mysqli_stmt_bind_param($sql,"ss", $email, $passwords);
 
             if (mysqli_stmt_execute($sql)) {

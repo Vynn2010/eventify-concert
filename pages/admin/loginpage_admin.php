@@ -7,13 +7,12 @@ if(isset($_POST["masuk"])) {
 
     $email = $_POST["email"];
     $passwords = $_POST["password"];
-    $role = $_POST["role"];
 
     if($email == "" && $passwords == ""){
         $pesan = "Email dan password tidak boleh kosong";
     } else {
-            $sql = mysqli_prepare($conn,"SELECT * FROM users WHERE email=? AND passwords=? AND role='admin'");
-            mysqli_stmt_bind_param($sql,"ss",$email, $passwords);
+            $sql = mysqli_prepare($conn,"SELECT * FROM users WHERE email=? AND passwords=? AND roles='admin'");
+            mysqli_stmt_bind_param($sql,"ss",$email, $passwords,$role);
             mysqli_stmt_execute($sql);
             $result= mysqli_stmt_get_result($sql);
 

@@ -7,7 +7,6 @@ if(isset($_POST["masuk"])) {
 
     $email = $_POST["email"];
     $passwords = $_POST["password"];
-    $role = $_POST["role"];
 
     if($email == "" && $passwords == ""){
         $pesan = "Email dan password tidak boleh kosong";
@@ -21,7 +20,7 @@ if(isset($_POST["masuk"])) {
                 $_SESSION["login_berhasil"] = true;
                 $_SESSION["email"] = $email;
                 $pesan = "Login berhasil.";
-                header("Location: ../pages/user/home_page_user.php");
+                header("Location: home_page_user.php");
 
 
             }   else {

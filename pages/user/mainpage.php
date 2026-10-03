@@ -57,3 +57,6 @@ $halaman_event = "home_page_user.php";
  
 </body>
 </html>
+<?php
+    mysqli_close($conn);
+?>

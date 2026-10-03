@@ -1,6 +1,12 @@
 <?php
+require_once __DIR__ . '/../../actions/session_init.php';
 include "../../actions/cek_koneksi.php";
-session_start();
+ 
+// Sudah login sebelumnya? Langsung ke halaman utama, tidak perlu login lagi
+if (!empty($_SESSION["user_id"])) {
+    header("Location: mainpage.php");
+    exit;
+}
  
 $pesan = "";
  
@@ -11,23 +17,24 @@ if (isset($_POST["masuk"])) {
     if ($email === "" || $passwords === "") {
         $pesan = "Email dan password tidak boleh kosong.";
     } else {
-        $sql = mysqli_prepare($conn, "SELECT * FROM users WHERE email=? AND passwords=? AND role='user'");
+        $sql = mysqli_prepare($conn, "SELECT id, email FROM users WHERE email=? AND passwords=? AND role='user'");
         mysqli_stmt_bind_param($sql, "ss", $email, $passwords);
         mysqli_stmt_execute($sql);
         $result = mysqli_stmt_get_result($sql);
+        $user   = mysqli_fetch_assoc($result);
+        mysqli_stmt_close($sql);
  
-        if (mysqli_num_rows($result) > 0) {
+        if ($user) {
             session_regenerate_id(true);
             $_SESSION["login_berhasil"] = true;
-            $_SESSION["email"] = $email;
-            mysqli_stmt_close($sql);
+            $_SESSION["user_id"]        = (int)$user["id"];   // dipakai profile, ticket, booking
+            $_SESSION["email"]          = $user["email"];
             header("Location: mainpage.php");
             exit;
         } else {
             $_SESSION["login_berhasil"] = false;
             $pesan = "Email atau password salah.";
         }
-        mysqli_stmt_close($sql);
     }
 }
  
@@ -79,3 +86,6 @@ $hide_auth = true; // sembunyikan tombol Login/Register di navbar
  
 </body>
 </html>
+<?php
+    mysqli_close($conn);
+?>

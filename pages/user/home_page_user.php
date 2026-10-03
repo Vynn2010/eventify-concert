@@ -71,8 +71,9 @@ if (!$result_concerts || !$result_genres) {
         <section id="concertGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-12">
             <?php if (mysqli_num_rows($result_concerts) > 0) { ?>
                 <?php while ($c = mysqli_fetch_assoc($result_concerts)) { ?>
-                    <article class="concert-card rounded-[22px] overflow-hidden flex flex-col shadow-sm"
-                             data-search="<?= htmlspecialchars(strtolower($c['title'] . ' ' . $c['artist'])) ?>">
+                    <a href="concertdetail.php?id=<?= (int)$c['id'] ?>"
+                       class="concert-card block rounded-[22px] overflow-hidden flex flex-col shadow-sm hover:shadow-lg hover:-translate-y-1 transition"
+                       data-search="<?= htmlspecialchars(strtolower($c['title'] . ' ' . $c['artist'])) ?>">
  
                         <!-- Bagian atas (abu terang): gambar + judul -->
                         <div class="bg-[#d9d9d9] flex-grow flex flex-col">
@@ -95,7 +96,7 @@ if (!$result_concerts || !$result_genres) {
                             <p class="text-sm line-clamp-2"><?= htmlspecialchars($c['concert_description']) ?></p>
                             <span class="text-xs mt-1 opacity-80">📍 <?= htmlspecialchars($c['venue']) ?></span>
                         </div>
-                    </article>
+                    </a>
                 <?php } ?>
             <?php } else { ?>
                 <p class="col-span-full text-center text-gray-500 py-10">Tidak ada konser yang tersedia untuk genre ini.</p>
@@ -126,6 +127,9 @@ if (!$result_concerts || !$result_genres) {
     </section>
     <?php endif; ?>
  
+    <!-- FOOTER -->
+    <?php include "../../components/landing/footer.php"; ?>
+ 
     <script>
         // Search: filter kartu di sisi browser
         document.getElementById('searchInput').addEventListener('input', function () {
@@ -152,7 +156,6 @@ if (!$result_concerts || !$result_genres) {
         }
     </script>
 </body>
-    <?php include "../../components/landing/footer.php"; ?>
 </html>
 <?php
     mysqli_close($conn);

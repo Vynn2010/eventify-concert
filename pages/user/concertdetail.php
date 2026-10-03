@@ -8,16 +8,24 @@ mysqli_stmt_bind_param($stmt, "s", $id);
 mysqli_stmt_execute($stmt);
 $result = mysqli_stmt_get_result($stmt);
 
+$id = (int)($_GET['id'] ?? 0);
+$stmt = mysqli_prepare($conn, "SELECT * FROM concerts WHERE id = ?");
+mysqli_stmt_bind_param($stmt, "i", $id);
+mysqli_stmt_execute($stmt);
+$konser = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+
 if(!$result) {
     die("Gagal : " . mysqli_error($conn));
 }
 $row = mysqli_fetch_assoc($result);
-?>
 
 $halaman_event = "home_page_user.php";
 $header_search = true; // navbar menampilkan kolom "Search event"
-$back_url = $halaman_event; // tombol Back di navbar
+
+if (!$konser) { http_response_code(404); exit('Konser tidak ditemukan'); }
+
 ?>
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -32,15 +40,24 @@ $back_url = $halaman_event; // tombol Back di navbar
  
     <main class="max-w-7xl mx-auto px-4 sm:px-5 py-8 sm:py-10">
  
-    <?php if (!$row): ?>
-        <!-- Konser tidak ditemukan -->
-        <div class="text-center py-20">
-            <p class="text-lg text-gray-600 mb-4">Konser tidak ditemukan.</p>
-            <a href="<?= htmlspecialchars($halaman_event) ?>" class="inline-block bg-[#6b6b6b] hover:bg-[#555] text-white rounded-full px-8 py-2.5 text-sm transition">Kembali ke daftar konser</a>
-        </div>
- 
-    <?php else: ?>
- 
+            <!-- Tombol Back -->
+        <a href="<?= htmlspecialchars($halaman_event) ?>"
+        aria-label="Kembali ke daftar konser"
+        class="inline-flex items-center justify-center w-10 h-10 mb-6 rounded-full bg-[#6b6b6b] hover:bg-[#555] text-white transition">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+        </a>
+        
+        <?php if (!$row): ?>
+            <!-- Konser tidak ditemukan -->
+            <div class="text-center py-20">
+                <p class="text-lg text-gray-600 mb-4">Konser tidak ditemukan.</p>
+                <a href="<?= htmlspecialchars($halaman_event) ?>" class="inline-block bg-[#6b6b6b] hover:bg-[#555] text-white rounded-full px-8 py-2.5 text-sm transition">Kembali ke daftar konser</a>
+            </div>
+    
+        <?php else: ?>
+    
         <!-- BAGIAN ATAS: gambar + info singkat -->
         <section class="flex flex-col sm:flex-row gap-5 sm:gap-6 mb-8">
  
@@ -105,13 +122,14 @@ $back_url = $halaman_event; // tombol Back di navbar
                         <?php if (isset($row['concert_status']) && $row['concert_status'] !== ''): ?>
                             <dt class="opacity-70">Status</dt><dd><?= htmlspecialchars($row['concert_status']) ?></dd>
                         <?php endif; ?>
+                        <dt class="opacity-70">Price</dt><dd>Rp <?= number_format((float)$row['price'], 0, ',', '.') ?></dd>
                     </dl>
                 </div>
             </div>
  
             <!-- Tombol Get Ticket (kanan bawah) -->
             <div class="lg:self-end">
-                <a href="checkout.php?id=<?= (int) $row['id'] ?>"
+                <a href="seat.php?id=<?= (int) $row['id'] ?>"
                    class="block text-center bg-[#6b6b6b] hover:bg-[#555] text-white text-lg font-semibold rounded-2xl py-5 transition">
                     Get Ticket
                 </a>
@@ -123,3 +141,6 @@ $back_url = $halaman_event; // tombol Back di navbar
  
 </body>
 </html>
+<?php
+    mysqli_close($conn);
+?>

@@ -88,4 +88,7 @@ $hide_auth = true; // sembunyikan tombol Login/Register di navbar
  
 </body>
 </html>
+<?php
+    mysqli_close($conn);
+?>
  

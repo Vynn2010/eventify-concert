@@ -1,5 +1,5 @@
 <?php
-include "../../actions/cek_koneksi.php";
+require_once __DIR__ . "/../../actions/cek_koneksi.php";
 include "../../actions/cek_login_user.php";
 $id= $_GET['id'];
 $sql = "SELECT * FROM concerts WHERE id = ?";

@@ -1,5 +1,5 @@
 <?php
-include "../../actions/cek_koneksi.php";
+require_once __DIR__ . "/../../actions/cek_koneksi.php";
 include "../../actions/cek_login_user.php";
  
 // ---------- TERIMA DATA DARI HALAMAN PILIH KURSI ----------
@@ -180,7 +180,7 @@ $halaman_aktif = 'event';
         </form>
     </main>
  
-    <?php include "../../components/landing/footer.php"; ?>
+    <?php include "././components/landing/footer.php"; ?>
  
     <script>
         const methods = document.querySelectorAll('.payment-input');

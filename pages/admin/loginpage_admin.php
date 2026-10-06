@@ -1,5 +1,5 @@
 <?php
-include "../../actions/cek_koneksi.php";
+require_once __DIR__ . "/../../actions/cek_koneksi.php";
 
 $pesan = "";
 session_start();

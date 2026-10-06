@@ -1,6 +1,6 @@
 <?php
-require_once __DIR__ . '/../../actions/session_init.php';
-include "../../actions/cek_koneksi.php";
+include '../../actions/session_init.php';
+require_once __DIR__ ."/../../actions/cek_koneksi.php";
  
 // Sudah login sebelumnya? Langsung ke halaman utama, tidak perlu login lagi
 if (!empty($_SESSION["user_id"])) {

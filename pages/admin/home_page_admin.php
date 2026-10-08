@@ -13,11 +13,11 @@ function count_rows(mysqli $conn, string $sql): int {
 $active_concerts  = count_rows($conn, "SELECT COUNT(*) FROM concerts WHERE concert_date >= CURDATE()");
 $available_seats  = count_rows($conn, "SELECT COUNT(*) FROM seats WHERE seat_status = 'Available'");
 $tickets_sold     = count_rows($conn, "SELECT COUNT(*) FROM tickets");
-$tickets_scanned  = count_rows($conn, "SELECT COUNT(*) FROM tickets WHERE is_scanned = 1");
+$tickets_scanned  = count_rows($conn, "SELECT COUNT(*) FROM tickets WHERE status = 'used'");
  
 // ---------- 5 TIKET TERBARU ----------
 $latest_tickets = mysqli_query($conn,
-    "SELECT t.id, t.is_scanned, c.title, s.seat_number
+    "SELECT t.id, t.status, c.title, s.seat_number
      FROM tickets t
      JOIN concerts c ON c.id = t.concert_id
      JOIN seats s    ON s.id = t.seat_id
@@ -117,7 +117,7 @@ $admin_email = $_SESSION["email"] ?? "admin";
                         <td class="py-3"><?= htmlspecialchars($t['title']) ?></td>
                         <td class="py-3"><?= htmlspecialchars($t['seat_number']) ?></td>
                         <td class="py-3">
-                            <?php if ($t['is_scanned']): ?>
+                            <?php if ($t['status'] === 'used'): ?>
                                 <span class="text-green-700">Scanned</span>
                             <?php else: ?>
                                 <span class="text-amber-700">Not scanned</span>

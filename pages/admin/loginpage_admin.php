@@ -2,19 +2,19 @@
 session_start();
 require_once __DIR__ . "/../../actions/cek_koneksi.php";
  
-$pesan = "";
+$message = "";
  
 if (isset($_POST["masuk"])) {
  
     $email     = trim($_POST["email"]);
-    $passwords = $_POST["password"];
+    $password = $_POST["password"];
  
-    if ($email == "" || $passwords == "") {
-        $pesan = "Email dan password tidak boleh kosong";
+    if ($email == "" || $password == "") {
+        $message = "Email dan password tidak boleh kosong";
     } else {
         // Pastikan nama kolom sesuai tabel users kamu (role atau roles)
         $sql = mysqli_prepare($conn, "SELECT * FROM users WHERE email=? AND passwords=? AND role='admin'");
-        mysqli_stmt_bind_param($sql, "ss", $email, $passwords);
+        mysqli_stmt_bind_param($sql, "ss", $email, $password);
         mysqli_stmt_execute($sql);
         $result = mysqli_stmt_get_result($sql);
  
@@ -26,7 +26,7 @@ if (isset($_POST["masuk"])) {
             exit();
         } else {
             $_SESSION["login_berhasil_admin"] = false;
-            $pesan = "Email atau password salah.";
+            $message = "Email atau password salah.";
         }
  
         mysqli_stmt_close($sql);
@@ -53,9 +53,9 @@ if (isset($_POST["masuk"])) {
                         Sign in to your account
                     </h1>
  
-                    <?php if ($pesan !== ""): ?>
+                    <?php if ($message !== ""): ?>
                         <div class="bg-red-100 text-red-800 rounded-lg p-3 text-sm">
-                            <?= htmlspecialchars($pesan) ?>
+                            <?= htmlspecialchars($message) ?>
                         </div>
                     <?php endif; ?>
  
@@ -87,3 +87,4 @@ if (isset($_POST["masuk"])) {
     </section>
 </body>
 </html>
+ 

@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . "/../../actions/cek_koneksi.php";
 include "../../actions/cek_login_admin.php";
+include "../../repo/booking_repositories.php";
  
 // Helper: ambil satu angka dari query COUNT(*)
 function count_rows(mysqli $conn, string $sql): int {
@@ -15,15 +16,7 @@ $available_seats  = count_rows($conn, "SELECT COUNT(*) FROM seats WHERE seat_sta
 $tickets_sold     = count_rows($conn, "SELECT COUNT(*) FROM tickets");
 $tickets_scanned  = count_rows($conn, "SELECT COUNT(*) FROM tickets WHERE status = 'used'");
  
-// ---------- 5 TIKET TERBARU ----------
-$latest_tickets = mysqli_query($conn,
-    "SELECT t.id, t.status, c.title, s.seat_number
-     FROM tickets t
-     JOIN concerts c ON c.id = t.concert_id
-     JOIN seats s    ON s.id = t.seat_id
-     ORDER BY t.id DESC
-     LIMIT 5"
-);
+$latest_tickets = AdminScan::findUserTicketfromAdmin($conn);
  
 $admin_email = $_SESSION["email"] ?? "admin";
 ?>
@@ -50,8 +43,9 @@ $admin_email = $_SESSION["email"] ?? "admin";
         <nav class="flex flex-col gap-2 text-sm">
             <a href="home_page_admin.php" class="px-4 py-3 rounded-xl bg-[#5835FF] text-white font-semibold">Dashboard</a>
             <a href="seat_generate.php" class="px-4 py-3 rounded-xl hover:bg-white/10">Generate Seats</a>
-            <a href="scan.php" class="px-4 py-3 rounded-xl hover:bg-white/10">Scan Ticket</a>
-            <a href="#" class="px-4 py-3 rounded-xl hover:bg-white/10">Concerts</a>
+            <a href="booking.php" class="px-4 py-3 rounded-xl hover:bg-white/10">Booking</a>
+            <a href="concerts.php" class="px-4 py-3 rounded-xl hover:bg-white/10">Concerts</a>
+            <a href="genres.php" class="px-4 py-3 rounded-xl hover:bg-white/10">Genres</a>
         </nav>
  
         <a href="../../actions/logout_admin.php"
@@ -62,7 +56,6 @@ $admin_email = $_SESSION["email"] ?? "admin";
  
     <!-- KONTEN -->
     <main class="flex-1 min-w-0 p-6 md:p-10 flex flex-col gap-8">
- 
         <header class="flex flex-wrap items-center justify-between gap-3">
             <div>
                 <h1 class="text-3xl font-bold">Dashboard</h1>

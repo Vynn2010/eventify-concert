@@ -1,28 +1,43 @@
 <?php
-include "../../actions/cek_koneksi.php";
+require_once __DIR__ . "/../../actions/cek_koneksi.php";
 include "../../actions/cek_login_user.php";
- 
-// ---------- KONSER ----------
+include "../../repo/booking_repositories.php";
+
 $id = (int)($_GET['id'] ?? 0);
-$stmt = mysqli_prepare($conn, "SELECT id, title, artist, venue, concert_date FROM concerts WHERE id = ?");
-mysqli_stmt_bind_param($stmt, "i", $id);
-mysqli_stmt_execute($stmt);
-$konser = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
- 
+$konser = UserSeat::findAllUserConcert($conn, $id);
 if (!$konser) { http_response_code(404); exit('Konser tidak ditemukan'); }
  
-// ---------- KURSI ----------
-$stmt = mysqli_prepare($conn, "SELECT id, seat_number, category_id, price, seat_status
-                               FROM seats WHERE concert_id = ?
-                               ORDER BY LEFT(seat_number, 1), LENGTH(seat_number), seat_number");
-mysqli_stmt_bind_param($stmt, "i", $id);
-mysqli_stmt_execute($stmt);
-$result_seats = mysqli_stmt_get_result($stmt);
+$result_seats = UserSeat::findAllUserSeat($conn, $id);
+ 
+// Warna tiap kategori (class ditulis lengkap supaya terbaca oleh Tailwind)
+$category_styles = [    
+    'vip'     => ['ring' => 'ring-2 ring-inset ring-amber-400',   'dot' => 'bg-amber-400'],
+    'reguler' => ['ring' => 'ring-2 ring-inset ring-sky-400',     'dot' => 'bg-sky-400'],
+    'regular' => ['ring' => 'ring-2 ring-inset ring-sky-400',     'dot' => 'bg-sky-400'],
+    'tribune' => ['ring' => 'ring-2 ring-inset ring-emerald-400', 'dot' => 'bg-emerald-400'],
+];
+$default_style = ['ring' => 'ring-2 ring-inset ring-gray-400', 'dot' => 'bg-gray-400'];
+ 
+function category_style(string $name, array $styles, array $default): array {
+    return $styles[strtolower(trim($name))] ?? $default;
+}
  
 // Kelompokkan kursi per baris (huruf pertama: A1, A2 -> baris A)
+// dan kumpulkan kategori yang ada di konser ini untuk legenda
 $rows = [];
+$categories_present = []; // nama kategori => harga termurah
 while ($s = mysqli_fetch_assoc($result_seats)) {
     $rows[strtoupper(substr($s['seat_number'], 0, 1))][] = $s;
+ 
+    $name = $s['category_name'];
+    $price = (float)$s['price'];
+    if (!isset($categories_present[$name]) || $price < $categories_present[$name]) {
+        $categories_present[$name] = $price;
+    }
+}
+ 
+function rupiah($n) {
+    return 'Rp ' . number_format((float)$n, 0, ',', '.');
 }
  
 $header_search = true; // navbar menampilkan kolom "Search event"
@@ -68,38 +83,65 @@ $halaman_detail = "concertdetail.php?id=" . $id;
                         <p class="text-center text-gray-600 py-10">Belum ada kursi untuk konser ini.</p>
                     <?php else: ?>
                         <div class="flex flex-col gap-3 items-center overflow-x-auto">
-                            <?php foreach ($rows as $huruf => $kursi): ?>
+                            <?php foreach ($rows as $huruf => $kursi):
+                                // Kalau seluruh kursi di baris ini satu kategori, tampilkan labelnya di ujung baris
+                                $row_categories = array_values(array_unique(array_column($kursi, 'category_name')));
+                            ?>
                                 <div class="flex items-center gap-3">
                                     <span class="w-5 text-sm font-semibold text-gray-700"><?= htmlspecialchars($huruf) ?></span>
                                     <div class="flex flex-wrap gap-2">
                                         <?php foreach ($kursi as $k):
                                             $available = strcasecmp(trim($k['seat_status']), 'Available') === 0;
+                                            $style = category_style($k['category_name'], $category_styles, $default_style);
                                         ?>
                                             <label class="<?= $available ? 'cursor-pointer' : 'cursor-not-allowed' ?>"
-                                                   title="<?= $available ? 'Tersedia' : 'Tidak tersedia' ?>">
+                                                   title="<?= htmlspecialchars($k['category_name']) ?> - <?= $available ? 'Tersedia' : 'Tidak tersedia' ?> - <?= rupiah($k['price']) ?>">
                                                 <input type="checkbox" name="seats[]"
                                                        value="<?= (int)$k['id'] ?>"
                                                        data-seat="<?= htmlspecialchars($k['seat_number']) ?>"
                                                        data-price="<?= (float)$k['price'] ?>"
+                                                       data-category="<?= htmlspecialchars($k['category_name']) ?>"
                                                        class="seat-input peer sr-only"
                                                        <?= $available ? '' : 'disabled' ?>>
                                                 <span class="flex items-center justify-center w-12 h-12 rounded-xl text-sm font-medium select-none transition
-                                                             bg-white text-gray-800 hover:bg-gray-100
+                                                             bg-white text-gray-800 hover:bg-gray-100 <?= $style['ring'] ?>
                                                              peer-checked:bg-[#6b6b6b] peer-checked:text-white
                                                              peer-focus-visible:ring-2 peer-focus-visible:ring-gray-700
-                                                             peer-disabled:bg-[#9a9a9a] peer-disabled:text-gray-600 peer-disabled:line-through peer-disabled:hover:bg-[#9a9a9a]">
+                                                             peer-disabled:bg-[#9a9a9a] peer-disabled:text-gray-600 peer-disabled:line-through peer-disabled:hover:bg-[#9a9a9a] peer-disabled:ring-0">
                                                     <?= htmlspecialchars($k['seat_number']) ?>
                                                 </span>
                                             </label>
                                         <?php endforeach; ?>
                                     </div>
+                                    <?php if (count($row_categories) === 1):
+                                        $row_style = category_style($row_categories[0], $category_styles, $default_style);
+                                    ?>
+                                        <span class="flex items-center gap-1.5 text-xs text-gray-700 shrink-0">
+                                            <span class="w-2.5 h-2.5 rounded-full <?= $row_style['dot'] ?>"></span>
+                                            <?= htmlspecialchars($row_categories[0]) ?>
+                                        </span>
+                                    <?php endif; ?>
                                 </div>
                             <?php endforeach; ?>
                         </div>
                     <?php endif; ?>
  
-                    <!-- Legenda -->
-                    <div class="flex flex-wrap justify-center gap-5 mt-8 text-xs text-gray-700">
+                    <!-- Legenda: tipe kursi (kategori + harga mulai dari) -->
+                    <?php if (!empty($categories_present)): ?>
+                        <div class="flex flex-wrap justify-center gap-x-5 gap-y-2 mt-8 text-xs text-gray-700">
+                            <?php foreach ($categories_present as $name => $min_price):
+                                $legend_style = category_style($name, $category_styles, $default_style);
+                            ?>
+                                <span class="flex items-center gap-2">
+                                    <span class="w-4 h-4 rounded bg-white inline-block <?= $legend_style['ring'] ?>"></span>
+                                    <?= htmlspecialchars($name) ?> · <?= rupiah($min_price) ?>
+                                </span>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+ 
+                    <!-- Legenda: status kursi -->
+                    <div class="flex flex-wrap justify-center gap-5 mt-3 text-xs text-gray-700">
                         <span class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-white inline-block"></span>Tersedia</span>
                         <span class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-[#6b6b6b] inline-block"></span>Dipilih</span>
                         <span class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-[#9a9a9a] inline-block"></span>Tidak tersedia</span>
@@ -157,9 +199,9 @@ $halaman_detail = "concertdetail.php?id=" . $id;
                 total += price;
  
                 const li = document.createElement('li');
-                li.className = 'flex justify-between';
+                li.className = 'flex justify-between gap-3';
                 const a = document.createElement('span');
-                a.textContent = 'Kursi ' + i.dataset.seat;
+                a.textContent = 'Kursi ' + i.dataset.seat + ' · ' + i.dataset.category;
                 const b = document.createElement('span');
                 b.textContent = rupiah(price);
                 li.append(a, b);
@@ -179,3 +221,13 @@ $halaman_detail = "concertdetail.php?id=" . $id;
 </html>
 <?php mysqli_close($conn); ?>
  
+
+
+
+
+
+
+
+
+
+

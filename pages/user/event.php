@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . "/../../actions/cek_koneksi.php";
 include "../../actions/cek_login_user.php";
+include "../../repo/concertdetail.php";
  
 // ---------- HELPER ----------
 function ambil_konser($conn, $sql) {
@@ -59,30 +60,18 @@ function section_konser($judul, array $daftar) { ?>
  
 // ---------- DATA ----------
 $kolom = "c.id, c.title, c.artist, c.venue, c.concert_date, c.concert_description, c.img";
- 
+
 // Recommendation: konser yang akan datang, paling dekat dulu
-$recommendation = ambil_konser($conn, "SELECT $kolom FROM concerts c
-                                       WHERE c.concert_date >= NOW()
-                                       ORDER BY c.concert_date ASC LIMIT 4");
- 
-// Favorite: konser yang terakhir ditambahkan
-$favorite = ambil_konser($conn, "SELECT $kolom FROM concerts c
-                                 ORDER BY c.id DESC LIMIT 4");
- 
+$recommendation = recommendation::createRecommendation($conn, $kolom);
+
 // Hots: konser dengan kursi terjual (tidak Available) paling banyak
-$hots = ambil_konser($conn, "SELECT $kolom, COUNT(s.id) AS terjual
-                             FROM concerts c
-                             LEFT JOIN seats s ON s.concert_id = c.id AND s.seat_status <> 'Available'
-                             GROUP BY c.id
-                             ORDER BY terjual DESC, c.concert_date ASC LIMIT 4");
+$hots = recommendation::createHots($conn, $kolom);
  
 // Banner atas: konser paling hot
 $hero = $hots[0] ?? null;
  
 // Banner bawah: konser terdekat (near due)
-$near_list = ambil_konser($conn, "SELECT $kolom FROM concerts c
-                                  WHERE c.concert_date >= NOW()
-                                  ORDER BY c.concert_date ASC LIMIT 1");
+$near_list = recommendation::createNear($conn, $kolom);
 $near = $near_list[0] ?? null;
  
 // Info untuk navbar (header.php)
@@ -131,7 +120,6 @@ $header_search = false; // search ada di halaman ini (pil kanan atas)
  
         <!-- Section konser -->
         <?php section_konser('Recommendation', $recommendation); ?>
-        <?php section_konser('Favorite', $favorite); ?>
         <?php section_konser('Hots', $hots); ?>
  
         <p id="noResult" class="hidden text-center text-gray-500 py-10">Tidak ada konser yang cocok dengan pencarian.</p>

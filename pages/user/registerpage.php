@@ -1,5 +1,6 @@
 <?php
-include "../../actions/cek_koneksi.php";
+require_once __DIR__ . "/../../actions/cek_koneksi.php";
+include "../../repo/homepage_user_repositories.php";
 session_start();
  
 $pesan = "";
@@ -15,18 +16,13 @@ if (isset($_POST["daftar"])) {
         $pesan = "Format email tidak valid.";
     } else {
         // Cek email sudah terdaftar atau belum
-        $cek = mysqli_prepare($conn, "SELECT id FROM users WHERE email=?");
-        mysqli_stmt_bind_param($cek, "s", $email);
-        mysqli_stmt_execute($cek);
-        $hasil = mysqli_stmt_get_result($cek);
+        $hasil = UserRegister::findUserRegister($conn, $email);
  
         if (mysqli_num_rows($hasil) > 0) {
             $pesan = "Email sudah terdaftar.";
         } else {
             // Sesuaikan nama kolom dengan tabel users kamu
-            $role = "user";
-            $ins = mysqli_prepare($conn, "INSERT INTO users (email, passwords, role) VALUES (?, ?, ?)");
-            mysqli_stmt_bind_param($ins, "sss", $email, $passwords, $role);
+            $ins = UserRegister::getUserRegister($conn, $email, $passwords);
  
             if (mysqli_stmt_execute($ins)) {
                 $sukses = true;
@@ -36,7 +32,7 @@ if (isset($_POST["daftar"])) {
             }
             mysqli_stmt_close($ins);
         }
-        mysqli_stmt_close($cek);
+        mysqli_stmt_close($conn);
     }
 }
  
@@ -80,7 +76,7 @@ $hide_auth = true; // sembunyikan tombol Login/Register di navbar
  
                 <p class="text-center text-sm sm:text-base text-gray-900">
                     already have account?
-                    <a href="loginpage.php" class="text-[#8a8fb0] hover:underline">Login</a>
+                    <a href="loginpage_user.php" class="text-[#8a8fb0] hover:underline">Login</a>
                 </p>
             </form>
         </div>

@@ -1,5 +1,5 @@
 <?php
-include "../../actions/cek_koneksi.php";
+require_once __DIR__ . "/../../actions/cek_koneksi.php";
 include "../../actions/cek_login_user.php";
  
 // Gambar latar hero: taruh file gambarmu di sini (atau ganti dengan URL gambar langsung, bukan URL halaman web)

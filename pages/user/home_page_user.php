@@ -1,162 +1,262 @@
 <?php
 require_once __DIR__ . "/../../actions/cek_koneksi.php";
-include "../../actions/cek_login_user.php";
+// include "../../actions/cek_login_user.php"; // aktifkan jika halaman ini harus login
+include "../../repo/homepage_user_repositories.php";
  
-// ---------- GENRE ----------
-$result_genres = mysqli_query($conn, "SELECT id, genre_name FROM genres ORDER BY id ASC");
-$selected_genre = isset($_GET['genre_id']) ? (int) $_GET['genre_id'] : 0;
- 
-// ---------- KONSER (filter dibuat SEBELUM query dijalankan) ----------
-if ($selected_genre > 0) {
-    $stmt = mysqli_prepare($conn, "SELECT id, title, artist, genre_id, venue, concert_date, concert_description, img
-                                   FROM concerts WHERE genre_id = ? ORDER BY id ASC");
-    mysqli_stmt_bind_param($stmt, "i", $selected_genre);
-    mysqli_stmt_execute($stmt);
-    $result_concerts = mysqli_stmt_get_result($stmt);
-} else {
-    $result_concerts = mysqli_query($conn, "SELECT id, title, artist, genre_id, venue, concert_date, concert_description, img
-                                            FROM concerts ORDER BY id ASC");
+if (!function_exists('rupiah')) {
+    function rupiah($n) {
+        return 'Rp ' . number_format((float)$n, 0, ',', '.');
+    }
 }
  
-// ---------- KONSER TERDEKAT (untuk banner bawah) ----------
-$result_near = mysqli_query($conn, "SELECT id, title, artist, venue, concert_date, concert_description, img
-                                    FROM concerts WHERE concert_date >= NOW()
-                                    ORDER BY concert_date ASC LIMIT 1");
-$near = $result_near ? mysqli_fetch_assoc($result_near) : null;
- 
-if (!$result_concerts || !$result_genres) {
-    die("Gagal mengambil data database: " . mysqli_error($conn));
+// Buat URL halaman ini dengan filter yang sedang aktif, lalu timpa sebagian parameter
+function build_filter_url(array $override): string {
+    $params = array_merge($_GET, $override);
+    $params = array_filter($params, fn($v) => $v !== '' && $v !== null && $v !== '0' && $v !== 0);
+    return 'home_page_user.php' . ($params ? '?' . http_build_query($params) : '');
 }
+ 
+// ---------- FILTER ----------
+$q        = trim($_GET['q'] ?? '');
+$min_date = $_GET['min_date'] ?? '';
+$max_date = $_GET['max_date'] ?? '';
+$genre    = (int)($_GET['genre'] ?? 0);
+$location = trim($_GET['location'] ?? '');
+ 
+$where  = [];
+$types  = '';
+$params = [];
+ 
+if ($q !== '') {
+    $where[]  = "(title LIKE ? OR artist LIKE ?)";
+    $types   .= 'ss';
+    $params[] = "%$q%";
+    $params[] = "%$q%";
+}
+if ($min_date !== '') {
+    $where[]  = "DATE(concert_date) >= ?";
+    $types   .= 's';
+    $params[] = $min_date;
+}
+if ($max_date !== '') {
+    $where[]  = "DATE(concert_date) <= ?";
+    $types   .= 's';
+    $params[] = $max_date;
+}
+if ($genre > 0) {
+    $where[]  = "genre_id = ?";                 // SESUAIKAN: nama kolom genre di tabel concerts
+    $types   .= 'i';
+    $params[] = $genre;
+}
+if ($location !== '') {
+    $where[]  = "venue LIKE ?";
+    $types   .= 's';
+    $params[] = "%$location%";
+}
+ 
+$concerts = HomePageUser::findUserHomePage($conn, $where, $types, $params);
+
+// ---------- DAFTAR GENRE ----------
+$genres = HomePageUser::findGenres($conn);
+ 
+// ---------- BANNER: konser terdekat yang belum lewat ----------
+$next_concert = HomePageUser::CreateBannerHomePage($conn);
+ 
+$header_search = false; // pencarian ada di dalam halaman ini; ubah ke true jika ingin search di navbar
+$filter_keys   = ['min_date', 'max_date', 'genre', 'location'];
 ?>
 <!DOCTYPE html>
-<html lang="id" class="scroll-smooth">
+<html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Eventify</title>
-    <!-- Tailwind CSS (INI yang sebelumnya hilang, sehingga tampilan berantakan) -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/flowbite@3.1.2/dist/flowbite.min.js"></script>
+    <title>Home - Eventify</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 </head>
 <body class="bg-white min-h-screen text-gray-800 antialiased flex flex-col">
  
-    <!-- NAVBAR -->
     <?php include "../../components/landing/header.php"; ?>
  
-    <!-- KONTEN UTAMA -->
-    <main class="w-full max-w-7xl mx-auto mt-8 px-5 flex-grow">
+    <main class="w-full max-w-7xl mx-auto px-4 sm:px-5 py-8 flex-grow flex flex-col gap-8">
  
-        <!-- Judul + Search -->
-        <header class="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 mb-4">
-            <div>
-                <p class="text-gray-600 text-sm">Concert Categories</p>
-                <h1 class="text-3xl font-medium">Find your genres</h1>
-            </div>
-            <input type="text" id="searchInput" placeholder="Search concert..."
-                   class="w-full sm:w-72 h-9 bg-[#b5b5b5] placeholder-gray-600 text-sm text-gray-900 rounded-full px-4 border-0 focus:ring-2 focus:ring-gray-500 focus:outline-none">
-        </header>
+        <!-- JUDUL + SEARCH -->
+        <section class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <h1 class="text-2xl sm:text-3xl font-bold">Find your genres</h1>
  
-        <!-- Genre capsule -->
-        <section class="flex flex-wrap gap-2.5 mb-8">
-            <a href="?" class="px-4 py-1.5 rounded-full text-[11px] transition <?= $selected_genre === 0 ? 'bg-[#777] text-white' : 'bg-[#dcdcdc] text-gray-800 hover:bg-[#777] hover:text-white' ?>">All Genre</a>
-            <?php while ($genre = mysqli_fetch_assoc($result_genres)) { ?>
-                <a href="?genre_id=<?= $genre['id'] ?>"
-                   class="px-4 py-1.5 rounded-full text-[11px] transition <?= $selected_genre === (int)$genre['id'] ? 'bg-[#777] text-white' : 'bg-[#dcdcdc] text-gray-800 hover:bg-[#777] hover:text-white' ?>">
-                    <?= htmlspecialchars($genre['genre_name']) ?>
+            <form action="home_page_user.php" method="GET" class="w-full sm:w-72">
+                <?php foreach ($filter_keys as $key): ?>
+                    <?php if (!empty($_GET[$key])): ?>
+                        <input type="hidden" name="<?= $key ?>" value="<?= htmlspecialchars($_GET[$key]) ?>">
+                    <?php endif; ?>
+                <?php endforeach; ?>
+                <input type="text" name="q" value="<?= htmlspecialchars($q) ?>" placeholder="Search event"
+                       class="w-full bg-[#d9d9d9] text-sm rounded-full px-5 py-3 outline-none focus:ring-2 focus:ring-gray-400">
+            </form>
+        </section>
+ 
+        <!-- TOMBOL GENRE -->
+        <section class="flex flex-wrap gap-2">
+            <a href="<?= htmlspecialchars(build_filter_url(['genre' => ''])) ?>"
+               class="text-sm rounded-full px-5 py-2 transition <?= $genre === 0 ? 'bg-[#5c5c5c] text-white' : 'bg-[#d9d9d9] hover:bg-[#c4c4c4]' ?>">All</a>
+            <?php foreach ($genres as $g): ?>
+                <a href="<?= htmlspecialchars(build_filter_url(['genre' => (int)$g['id']])) ?>"
+                   class="text-sm rounded-full px-5 py-2 transition <?= $genre === (int)$g['id'] ? 'bg-[#5c5c5c] text-white' : 'bg-[#d9d9d9] hover:bg-[#c4c4c4]' ?>">
+                    <?= htmlspecialchars($g['genre_name']) ?>
                 </a>
-            <?php } ?>
+            <?php endforeach; ?>
         </section>
  
-        <!-- Grid kartu konser -->
-        <section id="concertGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-12">
-            <?php if (mysqli_num_rows($result_concerts) > 0) { ?>
-                <?php while ($c = mysqli_fetch_assoc($result_concerts)) { ?>
-                    <a href="concertdetail.php?id=<?= (int)$c['id'] ?>"
-                       class="concert-card block rounded-[22px] overflow-hidden flex flex-col shadow-sm hover:shadow-lg hover:-translate-y-1 transition"
-                       data-search="<?= htmlspecialchars(strtolower($c['title'] . ' ' . $c['artist'])) ?>">
+        <!-- KARTU KONSER (3 kolom) + ADVANCED FILTER (kanan) -->
+        <section class="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6 items-start">
  
-                        <!-- Bagian atas (abu terang): gambar + judul -->
-                        <div class="bg-[#d9d9d9] flex-grow flex flex-col">
-                            <div class="w-full h-56 overflow-hidden">
-                                <?php if (!empty($c['img'])): ?>
-                                    <img src="<?= htmlspecialchars($c['img']) ?>" alt="<?= htmlspecialchars($c['title']) ?>"
-                                         class="w-full h-full object-cover object-top">
-                                <?php else: ?>
-                                    <div class="w-full h-full flex items-center justify-center text-gray-500 text-sm">No Image</div>
-                                <?php endif; ?>
-                            </div>
-                            <div class="px-4 py-4 text-center">
-                                <h3 class="text-lg font-semibold text-gray-900 leading-tight"><?= htmlspecialchars($c['title']) ?></h3>
-                                <p class="text-sm text-gray-600 mt-1"><?= htmlspecialchars($c['artist']) ?></p>
-                            </div>
-                        </div>
- 
-                        <!-- Bagian bawah (abu gelap): deskripsi -->
-                        <div class="bg-[#8f8f8f] text-gray-900 px-4 py-4 text-center h-24 flex flex-col justify-center">
-                            <p class="text-sm line-clamp-2"><?= htmlspecialchars($c['concert_description']) ?></p>
-                            <span class="text-xs mt-1 opacity-80">📍 <?= htmlspecialchars($c['venue']) ?></span>
-                        </div>
-                    </a>
-                <?php } ?>
-            <?php } else { ?>
-                <p class="col-span-full text-center text-gray-500 py-10">Tidak ada konser yang tersedia untuk genre ini.</p>
-            <?php } ?>
-        </section>
-    </main>
- 
-    <!-- BANNER KONSER TERDEKAT -->
-    <?php if ($near): ?>
-    <section class="bg-[#5c5c5c] px-5 pt-5 pb-3">
-        <div class="max-w-7xl mx-auto bg-[#d9d9d9] rounded-[22px] overflow-hidden flex flex-col md:flex-row">
-            <div class="md:w-1/4 h-40 md:h-auto bg-[#8f8f8f]">
-                <?php if (!empty($near['img'])): ?>
-                    <img src="<?= htmlspecialchars($near['img']) ?>" alt="<?= htmlspecialchars($near['title']) ?>" class="w-full h-full object-cover object-top">
+            <!-- Kartu konser -->
+            <div>
+                <?php if (empty($concerts)): ?>
+                    <p class="text-gray-600 py-10 text-center">Tidak ada konser yang cocok dengan filter.</p>
+                <?php else: ?>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+                        <?php foreach ($concerts as $c): ?>
+                            <a href="concertdetail.php?id=<?= (int)$c['id'] ?>"
+                               class="bg-[#d9d9d9] rounded-[24px] overflow-hidden flex flex-col hover:shadow-md transition">
+                                <div class="h-56 shrink-0 overflow-hidden bg-[#bdbdbd]">
+                                    <?php if (!empty($c['img'])): ?>
+                                        <img src="<?= htmlspecialchars($c['img']) ?>" alt="<?= htmlspecialchars($c['title']) ?>"
+                                             class="w-full h-full object-cover object-top">
+                                    <?php endif; ?>
+                                </div>
+                                <div class="p-4 flex flex-col gap-1">
+                                    <p class="font-bold truncate"><?= htmlspecialchars($c['title']) ?></p>
+                                    <p class="text-sm text-gray-700 truncate"><?= htmlspecialchars($c['artist']) ?></p>
+                                    <p class="text-xs text-gray-600 truncate">
+                                        <?= htmlspecialchars($c['venue']) ?> ·
+                                        <?= !empty($c['concert_date']) ? date('d M Y', strtotime($c['concert_date'])) : '-' ?>
+                                    </p>
+                                    <p class="text-sm font-semibold mt-1"><?= rupiah($c['price']) ?></p>
+                                </div>
+                            </a>
+                        <?php endforeach; ?>
+                    </div>
                 <?php endif; ?>
             </div>
-            <div class="flex-1 flex flex-col justify-center text-center px-6 py-5">
-                <h3 class="text-xl font-semibold"><?= htmlspecialchars($near['title']) ?> - <?= htmlspecialchars($near['artist']) ?></h3>
-                <p class="text-sm text-gray-700 mt-1 line-clamp-2"><?= htmlspecialchars($near['concert_description']) ?></p>
-                <p class="text-xs text-gray-600 mt-1">📍 <?= htmlspecialchars($near['venue']) ?></p>
-            </div>
-            <div class="hidden md:block w-px bg-gray-500 my-5"></div>
-            <div class="md:w-1/4 flex flex-col items-center justify-center gap-3 px-6 py-5">
-                <p class="text-2xl font-medium" id="countdown" data-date="<?= date('c', strtotime($near['concert_date'])) ?>">--</p>
-                <a href="ticket.php?id=<?= $near['id'] ?>" class="bg-[#8f8f8f] hover:bg-[#777] text-white text-sm rounded-full px-10 py-2 transition">Get Ticket</a>
-            </div>
-        </div>
-    </section>
-    <?php endif; ?>
  
-    <!-- FOOTER -->
+            <!-- Advanced Filter -->
+            <form action="home_page_user.php" method="GET"
+                  class="bg-[#d9d9d9] rounded-[28px] p-6 flex flex-col gap-4 lg:sticky lg:top-24">
+                <h2 class="text-center font-bold text-lg">Advanced Filter</h2>
+ 
+                <input type="hidden" name="q" value="<?= htmlspecialchars($q) ?>">
+ 
+                <div>
+                    <label for="min_date" class="block text-sm mb-2">Min date</label>
+                    <input type="date" id="min_date" name="min_date" value="<?= htmlspecialchars($min_date) ?>"
+                           class="w-full bg-[#b3b3b3] rounded-full px-5 py-3 text-sm outline-none">
+                </div>
+ 
+                <div>
+                    <label for="max_date" class="block text-sm mb-2">Max date</label>
+                    <input type="date" id="max_date" name="max_date" value="<?= htmlspecialchars($max_date) ?>"
+                           class="w-full bg-[#b3b3b3] rounded-full px-5 py-3 text-sm outline-none">
+                </div>
+ 
+                <div>
+                    <label for="location" class="block text-sm mb-2">Location</label>
+                    <input type="text" id="location" name="location" placeholder="e.g. Jakarta"
+                           value="<?= htmlspecialchars($location) ?>"
+                           class="w-full bg-[#b3b3b3] rounded-full px-5 py-3 text-sm placeholder-gray-600 outline-none">
+                </div>
+ 
+                <div>
+                    <label for="genre" class="block text-sm mb-2">Genre</label>
+                    <select id="genre" name="genre"
+                            class="w-full bg-[#b3b3b3] rounded-full px-5 py-3 text-sm outline-none">
+                        <option value="0">All Genre</option>
+                        <?php foreach ($genres as $g): ?>
+                            <option value="<?= (int)$g['id'] ?>" <?= $genre === (int)$g['id'] ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($g['genre_name']) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+ 
+                <div class="grid grid-cols-2 gap-3">
+                    <button type="submit"
+                            class="bg-[#6b6b6b] hover:bg-[#555] text-white text-sm rounded-full py-3 transition">Apply</button>
+                    <a href="home_page_user.php"
+                       class="text-center bg-[#b3b3b3] hover:bg-[#a0a0a0] text-sm rounded-full py-3 transition">Reset</a>
+                </div>
+            </form>
+        </section>
+ 
+        <!-- BANNER: konser mendekati tanggal -->
+        <?php if ($next_concert): ?>
+        <section class="bg-[#d9d9d9] rounded-[28px] overflow-hidden grid grid-cols-1 md:grid-cols-[300px_1fr] md:min-h-72">
+            <div class="relative h-56 md:h-auto bg-[#bdbdbd]">
+                <?php if (!empty($next_concert['img'])): ?>
+                    <img src="<?= htmlspecialchars($next_concert['img']) ?>" alt="<?= htmlspecialchars($next_concert['title']) ?>"
+                         class="absolute inset-0 w-full h-full object-cover object-top">
+                <?php endif; ?>
+            </div>
+            <div class="p-6 sm:p-8 flex flex-col gap-4 justify-center">
+                <div>
+                    <p class="text-sm text-gray-600">Coming soon</p>
+                    <h2 class="text-2xl font-bold"><?= htmlspecialchars($next_concert['title']) ?></h2>
+                    <p class="text-sm text-gray-700 mt-1">
+                        <?= htmlspecialchars($next_concert['artist']) ?> ·
+                        <?= htmlspecialchars($next_concert['venue']) ?>
+                    </p>
+                </div>
+ 
+                <?php if (!empty($next_concert['concert_description'])): ?>
+                    <p class="text-sm leading-relaxed text-gray-700 line-clamp-3">
+                        <?= htmlspecialchars($next_concert['concert_description']) ?>
+                    </p>
+                <?php endif; ?>
+ 
+                <!-- Countdown -->
+                <div id="countdown" class="flex gap-3 text-center"
+                     data-target="<?= date('c', strtotime($next_concert['concert_date'])) ?>">
+                    <?php foreach (['days' => 'Days', 'hours' => 'Hours', 'minutes' => 'Min', 'seconds' => 'Sec'] as $id => $label): ?>
+                        <div class="bg-[#5c5c5c] text-white rounded-2xl px-4 py-3 min-w-16">
+                            <div id="cd-<?= $id ?>" class="text-xl font-bold">--</div>
+                            <div class="text-[11px] opacity-80"><?= $label ?></div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+ 
+                <div>
+                    <a href="seat.php?id=<?= (int)$next_concert['id'] ?>"
+                       class="inline-block bg-[#5c5c5c] hover:bg-[#444] text-white text-sm font-semibold rounded-full px-8 py-3 transition">
+                        Get Ticket
+                    </a>
+                </div>
+            </div>
+        </section>
+        <?php endif; ?>
+ 
+    </main>
+ 
     <?php include "../../components/landing/footer.php"; ?>
  
     <script>
-        // Search: filter kartu di sisi browser
-        document.getElementById('searchInput').addEventListener('input', function () {
-            const q = this.value.toLowerCase();
-            document.querySelectorAll('.concert-card').forEach(card => {
-                card.style.display = card.dataset.search.includes(q) ? '' : 'none';
-            });
-        });
+    (function () {
+        var box = document.getElementById('countdown');
+        if (!box) return;
+        var target = new Date(box.dataset.target).getTime();
  
-        // Countdown
-        const cd = document.getElementById('countdown');
-        if (cd) {
-            const target = new Date(cd.dataset.date).getTime();
-            const tick = () => {
-                const d = target - Date.now();
-                if (d <= 0) { cd.textContent = 'Sedang berlangsung'; return; }
-                const day = Math.floor(d / 864e5);
-                const h = Math.floor(d % 864e5 / 36e5);
-                const m = Math.floor(d % 36e5 / 6e4);
-                const s = Math.floor(d % 6e4 / 1e3);
-                cd.textContent = `${day}d ${h}h ${m}m ${s}s`;
-            };
-            tick(); setInterval(tick, 1000);
+        function pad(n) { return String(n).padStart(2, '0'); }
+ 
+        function tick() {
+            var diff = Math.max(0, target - Date.now());
+            var s = Math.floor(diff / 1000);
+            document.getElementById('cd-days').textContent    = pad(Math.floor(s / 86400));
+            document.getElementById('cd-hours').textContent   = pad(Math.floor(s % 86400 / 3600));
+            document.getElementById('cd-minutes').textContent = pad(Math.floor(s % 3600 / 60));
+            document.getElementById('cd-seconds').textContent = pad(s % 60);
         }
+        tick();
+        setInterval(tick, 1000);
+    })();
     </script>
 </body>
 </html>
-<?php
-    mysqli_close($conn);
-?>
+<?php mysqli_close($conn); ?>

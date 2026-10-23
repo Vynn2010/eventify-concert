@@ -1,18 +1,11 @@
 <?php
 require_once __DIR__ . "/../../actions/cek_koneksi.php";
 include "../../actions/cek_login_user.php";
-$id= $_GET['id'];
-$sql = "SELECT * FROM concerts WHERE id = ?";
-$stmt = mysqli_prepare($conn, $sql);
-mysqli_stmt_bind_param($stmt, "s", $id);
-mysqli_stmt_execute($stmt);
-$result = mysqli_stmt_get_result($stmt);
+include "../../repo/concertdetail.php";
 
-$id = (int)($_GET['id'] ?? 0);
-$stmt = mysqli_prepare($conn, "SELECT * FROM concerts WHERE id = ?");
-mysqli_stmt_bind_param($stmt, "i", $id);
-mysqli_stmt_execute($stmt);
-$konser = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+$result = Concertdetail::findConcertNameById($conn);
+
+$konser = Concertdetail::findConcertById($conn);
 
 if(!$result) {
     die("Gagal : " . mysqli_error($conn));

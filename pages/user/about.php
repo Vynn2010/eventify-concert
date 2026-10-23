@@ -1,12 +1,10 @@
 <?php
 require_once __DIR__ . "/../../actions/cek_koneksi.php";
 include "../../actions/cek_login_user.php";
+include "../../repo/homepage_user_repositories.php";
  
 // ---------- KONSER TERDEKAT (untuk banner bawah) ----------
-$result_near = mysqli_query($conn, "SELECT id, title, artist, venue, concert_date, concert_description, img
-                                    FROM concerts WHERE concert_date >= NOW()
-                                    ORDER BY concert_date ASC LIMIT 1");
-$near = $result_near ? mysqli_fetch_assoc($result_near) : null;
+$near = Company::findCompanyInfo($conn);
  
 // Info untuk navbar (header.php)
 $halaman_aktif = 'about';

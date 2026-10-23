@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . "/../../actions/cek_koneksi.php";
 include "../../actions/cek_login_user.php";
+include "../../repo/booking_repositories.php";
  
 // ---------- TERIMA DATA DARI HALAMAN PILIH KURSI ----------
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -20,23 +21,12 @@ if ($concert_id === 0 || empty($seat_ids)) {
 }
  
 // ---------- KONSER ----------
-$stmt = mysqli_prepare($conn, "SELECT id, title, artist, venue, concert_date, img, price FROM concerts WHERE id = ?");
-mysqli_stmt_bind_param($stmt, "i", $concert_id);
-mysqli_stmt_execute($stmt);
-$konser = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+$konser = booking_repositories::CreateBooking($conn, $concert_id);
  
 if (!$konser) { http_response_code(404); exit('Konser tidak ditemukan'); }
  
 // ---------- KURSI TERPILIH (dicek ulang di server) ----------
-$placeholders = implode(',', array_fill(0, count($seat_ids), '?'));
-$tipe = 'i' . str_repeat('i', count($seat_ids));
-$sql  = "SELECT id, seat_number, price, seat_status FROM seats
-         WHERE concert_id = ? AND id IN ($placeholders)
-         ORDER BY LEFT(seat_number, 1), LENGTH(seat_number), seat_number";
-$stmt = mysqli_prepare($conn, $sql);
-mysqli_stmt_bind_param($stmt, $tipe, $concert_id, ...$seat_ids);
-mysqli_stmt_execute($stmt);
-$hasil_kursi = mysqli_stmt_get_result($stmt);
+$hasil_kursi = booking_repositories::findSelectedSeats($conn, $seat_ids, $concert_id);
  
 $kursi = [];
 while ($k = mysqli_fetch_assoc($hasil_kursi)) {
@@ -180,7 +170,7 @@ $halaman_aktif = 'event';
         </form>
     </main>
  
-    <?php include "././components/landing/footer.php"; ?>
+    <?php include __DIR__ . "/../../components/landing/footer.php"; ?>
  
     <script>
         const methods = document.querySelectorAll('.payment-input');

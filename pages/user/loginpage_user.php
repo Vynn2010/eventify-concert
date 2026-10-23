@@ -1,6 +1,7 @@
 <?php
 include '../../actions/session_init.php';
 require_once __DIR__ ."/../../actions/cek_koneksi.php";
+include "../../repo/homepage_user_repositories.php";
  
 // Sudah login sebelumnya? Langsung ke halaman utama, tidak perlu login lagi
 if (!empty($_SESSION["user_id"])) {
@@ -17,12 +18,7 @@ if (isset($_POST["masuk"])) {
     if ($email === "" || $passwords === "") {
         $pesan = "Email dan password tidak boleh kosong.";
     } else {
-        $sql = mysqli_prepare($conn, "SELECT id, email FROM users WHERE email=? AND passwords=? AND role='user'");
-        mysqli_stmt_bind_param($sql, "ss", $email, $passwords);
-        mysqli_stmt_execute($sql);
-        $result = mysqli_stmt_get_result($sql);
-        $user   = mysqli_fetch_assoc($result);
-        mysqli_stmt_close($sql);
+        $user = UserLogin::findUserLogin($conn, $email, $passwords);
  
         if ($user) {
             session_regenerate_id(true);

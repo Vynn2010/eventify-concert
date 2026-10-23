@@ -2,7 +2,7 @@
    Di halaman login/register, set sebelum include:  $hide_auth = true;  */ 
 $base = "../../pages/user/";
 ?>
-
+ 
 <header class="w-full bg-[#d9d9d9] sticky top-0 z-50">
     <nav class="max-w-7xl mx-auto px-4 sm:px-5 py-2.5 sm:py-3 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
  
@@ -26,13 +26,20 @@ $base = "../../pages/user/";
             <li><a href="<?= $base ?>event.php" class="block px-4 lg:px-6 py-2.5 lg:py-3 hover:text-gray-300 transition">Event</a></li>
         </ul>
  
-        <!-- Kanan: Search / Login-Profile + hamburger -->
+        <!-- Kanan: Search + Profile / Login-Profile + hamburger -->
         <div class="col-start-3 row-start-1 justify-self-end flex items-center gap-2">
             <?php if (!empty($header_search)): ?>
             <form action="<?= $base ?>home_page_user.php" method="GET" class="hidden sm:block">
                 <input type="text" name="q" placeholder="Search event"
                        class="w-40 lg:w-56 bg-white text-[11px] text-gray-900 rounded-full px-4 py-3 border-0 focus:outline-none focus:ring-2 focus:ring-gray-400">
             </form>
+ 
+            <?php if (empty($hide_auth)): ?>
+            <!-- Tombol Profile (di halaman yang menampilkan search) -->
+            <a href="<?= $base ?>profile.php"
+               class="bg-[#5c5c5c] hover:bg-[#444] text-white text-xs sm:text-sm rounded-full px-4 sm:px-6 py-2.5 sm:py-3 transition">Profile</a>
+            <?php endif; ?>
+ 
             <?php elseif (empty($hide_auth)): ?>
             <div class="flex items-center bg-white rounded-full">
                 <a href="<?= $base ?>loginpage_user.php" class="text-[11px] text-gray-900 px-3 lg:px-4 py-2 whitespace-nowrap">Login</a>
@@ -68,12 +75,3 @@ $base = "../../pages/user/";
         document.getElementById('mobileMenu').classList.toggle('hidden');
     });
 </script>
- 
-
-
-
-
-
-
-
-

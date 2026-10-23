@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once __DIR__ . "/../../actions/cek_koneksi.php";
+include "../../repo/homepage_user_repositories.php";
  
 $message = "";
  
@@ -12,13 +13,10 @@ if (isset($_POST["masuk"])) {
     if ($email == "" || $password == "") {
         $message = "Email dan password tidak boleh kosong";
     } else {
-        // Pastikan nama kolom sesuai tabel users kamu (role atau roles)
-        $sql = mysqli_prepare($conn, "SELECT * FROM users WHERE email=? AND passwords=? AND role='admin'");
-        mysqli_stmt_bind_param($sql, "ss", $email, $password);
-        mysqli_stmt_execute($sql);
+        $sql = AdminLogin::findAdminAccount($conn, $email, $password);
+
         $result = mysqli_stmt_get_result($sql);
- 
-        if (mysqli_num_rows($result) > 0) {
+         if (mysqli_num_rows($result) > 0) {
             $_SESSION["login_berhasil_admin"] = true;
             $_SESSION["email"] = $email;
             mysqli_stmt_close($sql);
@@ -28,8 +26,8 @@ if (isset($_POST["masuk"])) {
             $_SESSION["login_berhasil_admin"] = false;
             $message = "Email atau password salah.";
         }
- 
         mysqli_stmt_close($sql);
+        
     }
 }
 ?>

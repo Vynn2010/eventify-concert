@@ -1,6 +1,7 @@
 <?php
-include "../../actions/cek_koneksi.php";
+require_once __DIR__ . "/../../actions/cek_koneksi.php";
 include "../../actions/cek_login_user.php";
+include "../../repo/booking_repositories.php";
  
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -11,25 +12,24 @@ if (empty($_SESSION['user_id'])) {
 }
 $user_id = (int)$_SESSION['user_id'];
  
-// ---------- TIKET MILIK USER ----------
-$stmt = mysqli_prepare($conn, "SELECT t.id, t.qr_token, t.status, s.seat_number,
-                                      c.title, c.artist, c.venue, c.concert_date, c.img
-                               FROM tickets t
-                               JOIN seats s    ON s.id = t.seat_id
-                               JOIN concerts c ON c.id = t.concert_id
-                               WHERE t.user_id = ?
-                               ORDER BY t.id DESC");
-mysqli_stmt_bind_param($stmt, "i", $user_id);
-mysqli_stmt_execute($stmt);
-$hasil = mysqli_stmt_get_result($stmt);
+// Kalau ada ?id= (dari History Payment di profile), tampilkan hanya tiket itu
+$ticket_id = (int)($_GET['id'] ?? 0);
  
+$hasil = UserTicket::findAllUserTicket($conn, $ticket_id, $user_id);
+
 $daftar_tiket = [];
 while ($row = mysqli_fetch_assoc($hasil)) {
     $daftar_tiket[] = $row;
 }
  
+// id tidak ditemukan / bukan milik user ini -> kembali ke profile
+if ($ticket_id > 0 && empty($daftar_tiket)) {
+    header("Location: profile.php");
+    exit;
+}
+ 
 $header_search = true; // navbar menampilkan kolom "Search event"
-$halaman_aktif = 'event';
+$halaman_aktif = $ticket_id > 0 ? 'profile' : 'event';
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -48,10 +48,17 @@ $halaman_aktif = 'event';
     <main class="w-full max-w-5xl mx-auto px-4 sm:px-5 py-6 flex-grow">
  
         <!-- Kembali -->
-        <a href="event.php"
-           class="inline-block bg-[#d9d9d9] hover:bg-[#c8c8c8] text-gray-900 text-xs font-semibold rounded-full px-5 py-2 transition">
-            Back to events
-        </a>
+        <?php if ($ticket_id > 0): ?>
+            <a href="profile.php"
+               class="inline-block bg-[#d9d9d9] hover:bg-[#c8c8c8] text-gray-900 text-xs font-semibold rounded-full px-5 py-2 transition">
+                Back to profile
+            </a>
+        <?php else: ?>
+            <a href="event.php"
+               class="inline-block bg-[#d9d9d9] hover:bg-[#c8c8c8] text-gray-900 text-xs font-semibold rounded-full px-5 py-2 transition">
+                Back to events
+            </a>
+        <?php endif; ?>
  
         <!-- Payment Complete -->
         <div class="flex justify-center mt-4 mb-6">
